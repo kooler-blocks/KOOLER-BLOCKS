@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b0d10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KOOLER BLOCKS">
+<title>KOOLER BLOCKS</title>
+<style>
+:root{--bg:#090b0e;--panel:#15181d;--cell:#242a33;--text:#f7f7f7;--muted:#969eaa;--accent:#fff}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif}
+body{min-height:100vh;display:flex;justify-content:center}.app{width:min(100%,560px);padding:20px 14px 28px}
+header{display:flex;justify-content:space-between;align-items:end;margin-bottom:14px}.eyebrow{font-size:10px;letter-spacing:.2em;color:var(--muted)}h1{font-size:27px;margin:3px 0 0;letter-spacing:-.04em}.score{text-align:right}.score b{font-size:27px;display:block}.score span{font-size:10px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase}
+.board{display:grid;gap:5px;background:#101318;border:1px solid #2a3038;padding:7px;border-radius:18px;width:min(94vw,520px);aspect-ratio:1;margin:auto;touch-action:manipulation}
+.cell{background:var(--cell);border-radius:6px;position:relative}.cell:after{content:"";position:absolute;inset:2px;border-radius:5px;background:var(--c);opacity:0;transition:.1s}.cell.filled:after{opacity:1;box-shadow:inset 0 1px #ffffff55}.cell.clearing:after{animation:pop .25s ease}@keyframes pop{50%{transform:scale(.55);opacity:.2}}
+.tray{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:11px auto;width:min(94vw,520px)}.piece{height:88px;border:1px solid #2a3038;background:var(--panel);border-radius:15px;display:flex;align-items:center;justify-content:center}.piece.sel{border-color:#fff;box-shadow:0 0 0 1px #fff inset}.mini{display:grid;gap:3px}.mini i{width:20px;height:20px;border-radius:4px;background:var(--pc);box-shadow:inset 0 1px #fff5}.mini i.e{background:transparent;box-shadow:none}
+.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.btn{appearance:none;background:var(--panel);color:var(--text);border:1px solid #303640;border-radius:12px;padding:11px 15px;font-weight:700;font-size:14px}.btn:active{transform:scale(.98)}
+.status{text-align:center;color:var(--muted);font-size:12px;min-height:18px;margin:10px 0}
+details{margin-top:12px;background:var(--panel);border:1px solid #292f38;border-radius:15px;padding:12px 14px}summary{cursor:pointer;font-weight:700}.settings{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:12px}.settings label{font-size:11px;color:var(--muted);display:grid;gap:6px}.settings select,.settings input{height:42px;background:#0e1115;color:#fff;border:1px solid #343a44;border-radius:10px;padding:0 9px}.settings input[type=color]{padding:4px}.toggle{display:flex!important;align-items:center;grid-template-columns:auto 1fr}.toggle input{width:22px;height:22px}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div><div class="eyebrow">PERSONAL EDITION</div><h1>KOOLER BLOCKS</h1></div><div class="score"><b id="score">0</b><span>Score</span></div></header>
+<div id="board" class="board"></div>
+<div id="tray" class="tray"></div>
+<div id="status" class="status">Choose a block, then tap the board.</div>
+<div class="controls"><button class="btn" id="new">New Game</button><button class="btn" id="undo">Undo</button></div>
+<details><summary>Customize</summary><div class="settings">
+<label>Board<select id="size"><option>8</option><option>9</option><option>10</option></select></label>
+<label>Gravity<select id="gravity"><option value="down">Down ↓</option><option value="left">Left ←</option><option value="right">Right →</option></select></label>
+<label>Style<select id="style"><option value="classic">Classic</option><option value="rounded">Rounded</option><option value="glass">Glass</option></select></label>
+<label>Colour<input id="color" type="color" value="#ffffff"></label>
+<label class="toggle"><input id="sound" type="checkbox" checked> Sound</label>
+<label class="toggle"><input id="vibe" type="checkbox" checked> Haptics</label>
+</div></details>
+</div>
+<script>
+(()=> {
+let N=8,g=[],pieces=[],sel=-1,score=0,hist=[];const S={gravity:'down',style:'classic',color:'#ffffff',sound:true,vibe:true};
+const shapes=[[[1]],[[1,1]],[[1],[1]],[[1,1],[1,1]],[[1,1,1]],[[1],[1],[1]],[[1,1,1],[0,1,0]],[[1,0],[1,1]],[[0,1],[1,1]],[[1,1,1,1]],[[1],[1],[1],[1]],[[1,1,0],[0,1,1]],[[0,1,1],[1,1,0]],[[1,0,0],[1,1,1]],[[0,0,1],[1,1,1]]];
+const $=id=>document.getElementById(id), clone=x=>JSON.parse(JSON.stringify(x));
+function blank(){return Array.from({length:N},()=>Array(N).fill(null))}
+function piece(){return {s:clone(shapes[Math.floor(Math.random()*shapes.length)]),c:S.color}}
+function save(){hist.push({g:clone(g),p:clone(pieces),score});if(hist.length>10)hist.shift()}
+function render(){
+ const b=$('board');b.style.gridTemplateColumns=`repeat(${N},1fr)`;b.innerHTML='';
+ for(let r=0;r<N;r++)for(let c=0;c<N;c++){const d=document.createElement('div');d.className='cell'+(g[r][c]?' filled':'');if(g[r][c])d.style.setProperty('--c',g[r][c]);d.dataset.r=r;d.dataset.c=c;b.appendChild(d)}
+ const t=$('tray');t.innerHTML='';
+ pieces.forEach((p,i)=>{const e=document.createElement('button');e.className='piece'+(i===sel?' sel':'');e.type='button';e.setAttribute('aria-label','Block '+(i+1));e.onclick=()=>{sel=i;$('status').textContent='Tap a position on the board.';render()};
+ const m=document.createElement('div');m.className='mini';m.style.gridTemplateColumns=`repeat(${p.s[0].length},20px)`;
+ p.s.forEach(row=>row.forEach(v=>{const q=document.createElement('i');q.className=v?'':'e';if(v)q.style.setProperty('--pc',p.c);m.appendChild(q)}));e.appendChild(m);t.appendChild(e)});
+ $('score').textContent=score;
+}
+function fits(p,rr,cc){for(let r=0;r<p.s.length;r++)for(let c=0;c<p.s[0].length;c++)if(p.s[r][c]&&(rr+r<0||cc+c<0||rr+r>=N||cc+c>=N||g[rr+r][cc+c]))return false;return true}
+function place(rr,cc){if(sel<0)return;const p=pieces[sel];if(!fits(p,rr,cc)){msg('That block does not fit there.');return}save();let n=0;p.s.forEach((row,r)=>row.forEach((v,c)=>{if(v){g[rr+r][cc+c]=p.c;n++}}));score+=n;pieces.splice(sel,1);sel=-1;clearLines();while(pieces.length<3)pieces.push(piece());beep(300);vibe();render();if(!canMove())msg('Game over — '+score+' points. Tap New Game.')}
+function clearLines(){
+ let rows=[],cols=[];for(let r=0;r<N;r++)if(g[r].every(Boolean))rows.push(r);
+ for(let c=0;c<N;c++){let ok=true;for(let r=0;r<N;r++)if(!g[r][c])ok=false;if(ok)cols.push(c)}
+ if(!rows.length&&!cols.length)return;score+=(rows.length+cols.length)*N*2+(rows.length&&cols.length?25:0);
+ const kill=new Set();rows.forEach(r=>{for(let c=0;c<N;c++)kill.add(r+','+c)});cols.forEach(c=>{for(let r=0;r<N;r++)kill.add(r+','+c)});
+ kill.forEach(k=>{let [r,c]=k.split(',').map(Number);g[r][c]=null});gravity();beep(650);vibe();msg('Nice! '+(rows.length+cols.length)+' line'+((rows.length+cols.length)>1?'s':'')+' cleared — blocks fall.');}
+function gravity(){
+ if(S.gravity==='down'){for(let c=0;c<N;c++){let v=[];for(let r=N-1;r>=0;r--)if(g[r][c])v.push(g[r][c]);for(let r=N-1,i=0;r>=0;r--,i++)g[r][c]=v[i]||null}}
+ else if(S.gravity==='left'){for(let r=0;r<N;r++){let v=g[r].filter(Boolean);for(let c=0;c<N;c++)g[r][c]=v[c]||null}}
+ else {for(let r=0;r<N;r++){let v=g[r].filter(Boolean);for(let c=0;c<N;c++)g[r][c]=c<N-v.length?null:v[c-(N-v.length)]}}
+}
+function canMove(){return pieces.some(p=>{for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(fits(p,r,c))return true;return false})}
+function newGame(){g=blank();pieces=[piece(),piece(),piece()];sel=-1;score=0;hist=[];msg('Choose a block, then tap the board.');render()}
+function undo(){const x=hist.pop();if(!x)return;g=x.g;pieces=x.p;score=x.score;sel=-1;msg('Undone.');render()}
+function msg(x){$('status').textContent=x}
+function vibe(){if(S.vibe&&navigator.vibrate)navigator.vibrate(18)}
+function beep(freq){if(!S.sound)return;try{const A=window.AudioContext||window.webkitAudioContext;if(!A)return;const a=new A(),o=a.createOscillator(),v=a.createGain();o.frequency.value=freq;o.type='sine';v.gain.value=.035;o.connect(v);v.connect(a.destination);o.start();o.stop(a.currentTime+.08)}catch(e){}}
+$('board').onclick=e=>{const c=e.target.closest('.cell');if(c)place(+c.dataset.r,+c.dataset.c)};
+$('new').onclick=newGame;$('undo').onclick=undo;
+$('size').onchange=e=>{N=+e.target.value;newGame()};$('gravity').onchange=e=>{S.gravity=e.target.value;gravity();render()};
+$('color').oninput=e=>{S.color=e.target.value;pieces.forEach(p=>p.c=S.color);render()};
+$('sound').onchange=e=>S.sound=e.target.checked;$('vibe').onchange=e=>S.vibe=e.target.checked;
+$('style').onchange=e=>{document.documentElement.dataset.style=e.target.value;render()};
+newGame();
+})();
+</script>
+</body></html>
