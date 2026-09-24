@@ -19,7 +19,7 @@ header{display:flex;justify-content:space-between;align-items:end;margin-bottom:
 .controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.btn{appearance:none;background:var(--panel);color:var(--text);border:1px solid #303640;border-radius:12px;padding:11px 15px;font-weight:700;font-size:14px}.btn:active{transform:scale(.98)}
 .status{text-align:center;color:var(--muted);font-size:12px;min-height:18px;margin:10px 0}
 details{margin-top:12px;background:var(--panel);border:1px solid #292f38;border-radius:15px;padding:12px 14px}summary{cursor:pointer;font-weight:700}.settings{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:12px}.settings label{font-size:11px;color:var(--muted);display:grid;gap:6px}.settings select,.settings input{height:42px;background:#0e1115;color:#fff;border:1px solid #343a44;border-radius:10px;padding:0 9px}.settings input[type=color]{padding:4px}.toggle{display:flex!important;align-items:center;grid-template-columns:auto 1fr}.toggle input{width:22px;height:22px}
-</style>
+.floating{position:fixed;z-index:50;pointer-events:none;transform:translate(-50%,-50%);display:grid;gap:4px;opacity:.94;filter:drop-shadow(0 10px 18px #0008)}.floating i{width:28px;height:28px;border-radius:6px;background:var(--pc);box-shadow:inset 0 1px #fff6}.cell.preview:after{opacity:.35;background:var(--preview)}.piece.dragging{opacity:.35}</style>
 </head>
 <body>
 <div class="app">
@@ -80,6 +80,18 @@ $('color').oninput=e=>{S.color=e.target.value;pieces.forEach(p=>p.c=S.color);ren
 $('sound').onchange=e=>S.sound=e.target.checked;$('vibe').onchange=e=>S.vibe=e.target.checked;
 $('style').onchange=e=>{document.documentElement.dataset.style=e.target.value;render()};
 newGame();
+
+// iPhone finger drag-and-drop
+let drag=null, suppressClick=false;
+function dragCellAt(x,y){const b=$('board'),rect=b.getBoundingClientRect(),pad=7,gap=5,inner=rect.width-pad*2,cw=(inner-gap*(N-1))/N;if(x<rect.left+pad||x>rect.right-pad||y<rect.top+pad||y>rect.bottom-pad)return null;const c=Math.floor((x-rect.left-pad)/(cw+gap)),r=Math.floor((y-rect.top-pad)/(cw+gap));return r>=0&&c>=0&&r<N&&c<N?{r,c}:null}
+function clearDragPreview(){document.querySelectorAll('.cell.preview').forEach(x=>x.classList.remove('preview'))}
+function dragStart(e){const el=e.currentTarget,i=+el.dataset.i;if(!pieces[i])return;e.preventDefault();sel=i;drag={el,i,p:pieces[i],rr:null,cc:null};el.classList.add('dragging');const f=document.createElement('div');f.className='floating';f.style.gridTemplateColumns=`repeat(${drag.p.s[0].length},28px)`;drag.p.s.forEach(row=>row.forEach(v=>{const q=document.createElement('i');if(v)q.style.setProperty('--pc',drag.p.c);else q.style.visibility='hidden';f.appendChild(q)}));document.body.appendChild(f);drag.f=f;dragMove(e);}
+function dragMove(e){if(!drag)return;drag.f.style.left=e.clientX+'px';drag.f.style.top=(e.clientY-55)+'px';clearDragPreview();const bc=dragCellAt(e.clientX,e.clientY);if(!bc){drag.rr=null;return}const rr=bc.r-Math.floor(drag.p.s.length/2),cc=bc.c-Math.floor(drag.p.s[0].length/2);if(fits(drag.p,rr,cc)){drag.rr=rr;drag.cc=cc;for(let r=0;r<drag.p.s.length;r++)for(let c=0;c<drag.p.s[0].length;c++)if(drag.p.s[r][c]){const q=document.querySelector(`.cell[data-r="${rr+r}"][data-c="${cc+c}"]`);if(q){q.classList.add('preview');q.style.setProperty('--preview',drag.p.c)}}}else drag.rr=null}
+function dragEnd(e){if(!drag)return;const d=drag;d.el.classList.remove('dragging');clearDragPreview();if(d.rr!==null)place(d.rr,d.cc);else msg('That block does not fit there.');d.f.remove();drag=null;suppressClick=true;setTimeout(()=>suppressClick=false,150)}
+function bindDrag(){document.querySelectorAll('.piece').forEach((el,i)=>{if(el.dataset.dragBound)return;el.dataset.dragBound='1';el.dataset.i=i;el.addEventListener('pointerdown',dragStart);el.addEventListener('pointermove',dragMove);el.addEventListener('pointerup',dragEnd);el.addEventListener('pointercancel',dragEnd)})}
+new MutationObserver(bindDrag).observe($('tray'),{childList:true});
+$('tray').addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopImmediatePropagation()}},true);
+bindDrag();
 })();
 </script>
 </body></html>
